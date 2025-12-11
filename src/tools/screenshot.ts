@@ -10,6 +10,11 @@ import type {ElementHandle, Page} from '../third_party/index.js';
 import {ToolCategory} from './categories.js';
 import {defineTool} from './ToolDefinition.js';
 
+// Configuration for context-friendly screenshots
+const DEFAULT_FORMAT = 'webp';  // WebP provides best compression
+const DEFAULT_QUALITY = 60;     // Good balance of quality vs size
+const MAX_INLINE_SIZE = 100_000; // 100KB max before saving to file (was 2MB!)
+
 export const screenshot = defineTool({
   name: 'take_screenshot',
   description: `Take a screenshot of the page or element.`,
@@ -21,15 +26,15 @@ export const screenshot = defineTool({
   schema: {
     format: zod
       .enum(['png', 'jpeg', 'webp'])
-      .default('png')
-      .describe('Type of format to save the screenshot as. Default is "png"'),
+      .default(DEFAULT_FORMAT)
+      .describe(`Type of format to save the screenshot as. Default is "${DEFAULT_FORMAT}" for better compression.`),
     quality: zod
       .number()
       .min(0)
       .max(100)
       .optional()
       .describe(
-        'Compression quality for JPEG and WebP formats (0-100). Higher values mean better quality but larger file sizes. Ignored for PNG format.',
+        `Compression quality for JPEG and WebP formats (0-100). Default is ${DEFAULT_QUALITY}. Higher values mean better quality but larger file sizes. Ignored for PNG format.`,
       ),
     uid: zod
       .string()
@@ -63,7 +68,8 @@ export const screenshot = defineTool({
     }
 
     const format = request.params.format;
-    const quality = format === 'png' ? undefined : request.params.quality;
+    // Use default quality for jpeg/webp if not specified
+    const quality = format === 'png' ? undefined : (request.params.quality ?? DEFAULT_QUALITY);
 
     const screenshot = await pageOrHandle.screenshot({
       type: format,
@@ -86,15 +92,20 @@ export const screenshot = defineTool({
       );
     }
 
+    // Report size for transparency
+    const sizeKB = Math.round(screenshot.length / 1024);
+    response.appendResponseLine(`Screenshot size: ${sizeKB}KB (${format}, quality: ${quality ?? 'lossless'})`);
+
     if (request.params.filePath) {
       const file = await context.saveFile(screenshot, request.params.filePath);
       response.appendResponseLine(`Saved screenshot to ${file.filename}.`);
-    } else if (screenshot.length >= 2_000_000) {
+    } else if (screenshot.length >= MAX_INLINE_SIZE) {
+      // Save to file if larger than threshold to avoid bloating context
       const {filename} = await context.saveTemporaryFile(
         screenshot,
         `image/${request.params.format}`,
       );
-      response.appendResponseLine(`Saved screenshot to ${filename}.`);
+      response.appendResponseLine(`Screenshot too large for inline (>${Math.round(MAX_INLINE_SIZE/1024)}KB). Saved to ${filename}.`);
     } else {
       response.attachImage({
         mimeType: `image/${request.params.format}`,

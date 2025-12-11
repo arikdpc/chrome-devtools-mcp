@@ -1,6 +1,6 @@
 {
-  "name": "chrome-devtools-mcp",
-  "version": "0.12.0",
+  "name": "@arikdpc/chrome-devtools-mcp",
+  "version": "0.12.1",
   "description": "MCP server for Chrome DevTools",
   "type": "module",
   "bin": "./build/src/index.js",
@@ -38,6 +38,14 @@
   },
   "homepage": "https://github.com/ChromeDevTools/chrome-devtools-mcp#readme",
   "mcpName": "io.github.ChromeDevTools/chrome-devtools-mcp",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "1.24.3",
+    "chrome-devtools-frontend": "1.0.1555430",
+    "core-js": "3.47.0",
+    "debug": "4.4.3",
+    "puppeteer": "24.32.1",
+    "yargs": "18.0.0"
+  },
   "devDependencies": {
     "@eslint/js": "^9.35.0",
     "@modelcontextprotocol/sdk": "1.24.3",
