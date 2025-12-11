@@ -24,6 +24,8 @@ import type {McpContext} from './McpContext.js';
 import type {
   ConsoleMessage,
   ImageContent,
+  EmbeddedResource,
+  ContentBlock,
   ResourceType,
   TextContent,
 } from './third_party/index.js';
@@ -182,7 +184,7 @@ export class McpResponse implements Response {
   async handle(
     toolName: string,
     context: McpContext,
-  ): Promise<Array<TextContent | ImageContent>> {
+  ): Promise<ContentBlock[]> {
     if (this.#includePages) {
       await context.createPagesSnapshot();
     }
@@ -352,7 +354,7 @@ export class McpResponse implements Response {
       consoleListData: ConsoleMessageData[] | undefined;
       formattedSnapshot: string | undefined;
     },
-  ): Array<TextContent | ImageContent> {
+  ): ContentBlock[] {
     const response = [`# ${toolName} response`];
     for (const line of this.#textResponseLines) {
       response.push(line);
@@ -464,14 +466,29 @@ Call ${handleDialog.name} to handle it before continuing.`);
       type: 'text',
       text: response.join('\n'),
     };
-    const images: ImageContent[] = this.#images.map(imageData => {
+    
+    // Convert images to either EmbeddedResource (with filename) or ImageContent
+    const imageContents: ContentBlock[] = this.#images.map(imageData => {
+      if (imageData.fileName) {
+        // Use EmbeddedResource with URI to pass filename to Copilot
+        return {
+          type: 'resource' as const,
+          resource: {
+            uri: `file:///${imageData.fileName}`,
+            mimeType: imageData.mimeType,
+            blob: imageData.data,
+          },
+        };
+      }
+      // Fallback to ImageContent for images without filename
       return {
-        type: 'image',
-        ...imageData,
-      } as const;
+        type: 'image' as const,
+        data: imageData.data,
+        mimeType: imageData.mimeType,
+      };
     });
 
-    return [text, ...images];
+    return [text, ...imageContents];
   }
 
   #dataWithPagination<T>(data: T[], pagination?: PaginationOptions) {

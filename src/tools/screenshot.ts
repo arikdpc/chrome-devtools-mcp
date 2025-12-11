@@ -111,9 +111,7 @@ export const screenshot = defineTool({
       response.attachImage({
         mimeType: `image/${request.params.format}`,
         data: Buffer.from(screenshot).toString('base64'),
-        _meta: {
-          filename: `screenshot.${extension}`,
-        },
+        fileName: `screenshot.${extension}`,
       });
     }
   },

@@ -19,6 +19,8 @@ export {
   SetLevelRequestSchema,
   type ImageContent,
   type TextContent,
+  type EmbeddedResource,
+  type ContentBlock,
 } from '@modelcontextprotocol/sdk/types.js';
 export {z as zod} from 'zod';
 export {
