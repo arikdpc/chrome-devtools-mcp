@@ -40,6 +40,9 @@ export interface Request<Schema extends zod.ZodRawShape> {
 export interface ImageContentData {
   data: string;
   mimeType: string;
+  _meta?: {
+    filename?: string;
+  };
 }
 
 export interface SnapshotParams {

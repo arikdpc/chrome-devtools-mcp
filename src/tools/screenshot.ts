@@ -107,9 +107,13 @@ export const screenshot = defineTool({
       );
       response.appendResponseLine(`Screenshot too large for inline (>${Math.round(MAX_INLINE_SIZE/1024)}KB). Saved to ${filename}.`);
     } else {
+      const extension = request.params.format === 'jpeg' ? 'jpg' : request.params.format;
       response.attachImage({
         mimeType: `image/${request.params.format}`,
         data: Buffer.from(screenshot).toString('base64'),
+        _meta: {
+          filename: `screenshot.${extension}`,
+        },
       });
     }
   },
