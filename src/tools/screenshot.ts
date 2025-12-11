@@ -11,7 +11,7 @@ import {ToolCategory} from './categories.js';
 import {defineTool} from './ToolDefinition.js';
 
 // Configuration for context-friendly screenshots
-const DEFAULT_FORMAT = 'webp';  // WebP provides best compression
+const DEFAULT_FORMAT = 'jpeg';  // JPEG for better compatibility
 const DEFAULT_QUALITY = 60;     // Good balance of quality vs size
 const MAX_INLINE_SIZE = 100_000; // 100KB max before saving to file (was 2MB!)
 
