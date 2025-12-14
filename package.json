@@ -40,7 +40,7 @@
   "mcpName": "io.github.ChromeDevTools/chrome-devtools-mcp",
   "dependencies": {
     "@modelcontextprotocol/sdk": "1.24.3",
-    "chrome-devtools-frontend": "1.0.1555430",
+    "chrome-devtools-frontend": "1.0.1556696",
     "core-js": "3.47.0",
     "debug": "4.4.3",
     "puppeteer": "24.32.1",
@@ -60,7 +60,7 @@
     "@types/yargs": "^17.0.33",
     "@typescript-eslint/eslint-plugin": "^8.43.0",
     "@typescript-eslint/parser": "^8.43.0",
-    "chrome-devtools-frontend": "1.0.1555430",
+    "chrome-devtools-frontend": "1.0.1556696",
     "core-js": "3.47.0",
     "debug": "4.4.3",
     "eslint": "^9.35.0",
