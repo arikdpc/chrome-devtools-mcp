@@ -21,6 +21,8 @@ import {DevTools, type Protocol} from './third_party/index.js';
 import type {
   ConsoleMessage,
   ImageContent,
+  EmbeddedResource,
+  ContentBlock,
   Page,
   ResourceType,
   TextContent,
@@ -451,7 +453,7 @@ export class McpResponse implements Response {
     toolName: string,
     context: McpContext,
   ): Promise<{
-    content: Array<TextContent | ImageContent>;
+    content: Array<TextContent | ContentBlock>;
     structuredContent: object;
   }> {
     if (this.#includePages) {
@@ -692,7 +694,7 @@ export class McpResponse implements Response {
       webmcpTools?: WebMCPTool[];
       errorMessage?: string;
     },
-  ): {content: Array<TextContent | ImageContent>; structuredContent: object} {
+  ): {content: Array<TextContent | ContentBlock>; structuredContent: object} {
     const structuredContent: {
       snapshot?: object;
       snapshotFilePath?: string;
@@ -1101,15 +1103,26 @@ Call ${handleDialog.name} to handle it before continuing.`);
       type: 'text',
       text: response.join('\n'),
     };
-    const images: ImageContent[] = this.#images.map(imageData => {
+    const imageContents: ContentBlock[] = this.#images.map(imageData => {
+      if (imageData.fileName) {
+        return {
+          type: 'resource' as const,
+          resource: {
+            uri: `file:///${imageData.fileName}`,
+            mimeType: imageData.mimeType,
+            blob: imageData.data,
+          },
+        };
+      }
       return {
-        type: 'image',
-        ...imageData,
-      } as const;
+        type: 'image' as const,
+        data: imageData.data,
+        mimeType: imageData.mimeType,
+      };
     });
 
     return {
-      content: [text, ...images],
+      content: [text, ...imageContents],
       structuredContent,
     };
   }

@@ -30,6 +30,8 @@ export {
   SetLevelRequestSchema,
   type ImageContent,
   type TextContent,
+  type EmbeddedResource,
+  type ContentBlock,
   type Root,
   ListRootsRequestSchema,
   RootsListChangedNotificationSchema,

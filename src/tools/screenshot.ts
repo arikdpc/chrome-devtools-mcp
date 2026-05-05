@@ -10,6 +10,10 @@ import type {ElementHandle, Page} from '../third_party/index.js';
 import {ToolCategory} from './categories.js';
 import {definePageTool} from './ToolDefinition.js';
 
+const DEFAULT_FORMAT = 'jpeg';
+const DEFAULT_QUALITY = 60;
+const MAX_INLINE_SIZE = 100_000; // 100KB
+
 export const screenshot = definePageTool({
   name: 'take_screenshot',
   description: `Take a screenshot of the page or element.`,
@@ -21,15 +25,15 @@ export const screenshot = definePageTool({
   schema: {
     format: zod
       .enum(['png', 'jpeg', 'webp'])
-      .default('png')
-      .describe('Type of format to save the screenshot as. Default is "png"'),
+      .default(DEFAULT_FORMAT)
+      .describe('Type of format to save the screenshot as. Default is "jpeg"'),
     quality: zod
       .number()
       .min(0)
       .max(100)
       .optional()
       .describe(
-        'Compression quality for JPEG and WebP formats (0-100). Higher values mean better quality but larger file sizes. Ignored for PNG format.',
+        `Compression quality for JPEG and WebP formats (0-100). Higher values mean better quality but larger file sizes. Ignored for PNG format. Default is ${DEFAULT_QUALITY}.`,
       ),
     uid: zod
       .string()
@@ -65,7 +69,7 @@ export const screenshot = definePageTool({
     }
 
     const format = request.params.format;
-    const quality = format === 'png' ? undefined : request.params.quality;
+    const quality = format === 'png' ? undefined : (request.params.quality ?? DEFAULT_QUALITY);
 
     const screenshot = await pageOrHandle.screenshot({
       type: format,
@@ -88,6 +92,9 @@ export const screenshot = definePageTool({
       );
     }
 
+    const sizeKB = Math.round(screenshot.length / 1024);
+    response.appendResponseLine(`Screenshot size: ${sizeKB}KB (${format}, quality: ${quality ?? 'lossless'})`);
+
     if (request.params.filePath) {
       const result = await context.saveFile(
         screenshot,
@@ -95,16 +102,18 @@ export const screenshot = definePageTool({
         `.${format}`,
       );
       response.appendResponseLine(`Saved screenshot to ${result.filename}.`);
-    } else if (screenshot.length >= 2_000_000) {
+    } else if (screenshot.length >= MAX_INLINE_SIZE) {
       const {filepath} = await context.saveTemporaryFile(
         screenshot,
         `screenshot.${request.params.format}`,
       );
-      response.appendResponseLine(`Saved screenshot to ${filepath}.`);
+      response.appendResponseLine(`Screenshot too large for inline (>${Math.round(MAX_INLINE_SIZE/1024)}KB). Saved to ${filepath}.`);
     } else {
+      const extension = request.params.format === 'jpeg' ? 'jpg' : request.params.format;
       response.attachImage({
         mimeType: `image/${request.params.format}`,
         data: Buffer.from(screenshot).toString('base64'),
+        fileName: `screenshot.${extension}`,
       });
     }
   },
