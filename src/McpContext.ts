@@ -69,6 +69,14 @@ export class McpContext implements Context {
   // Auto-generated name counter for when no name is provided.
   #nextIsolatedContextId = 1;
 
+  // Per-session BrowserContext, auto-created in #init(). One McpContext ==
+  // one subprocess == one session, so this yields exactly one context per
+  // session. Default new pages open here and the tracked page set is scoped
+  // to it (see #getAllPages), so other sessions' and default-context tabs
+  // stay invisible. This is the session's DEFAULT context and is distinct
+  // from the LLM-named #isolatedContexts sub-contexts.
+  #sessionContext!: BrowserContext;
+
   #pages: Page[] = [];
   #extensionServiceWorkers: ExtensionServiceWorker[] = [];
 
@@ -125,6 +133,10 @@ export class McpContext implements Context {
   }
 
   async #init() {
+    // Auto-create the per-session context before the first page snapshot so
+    // #getAllPages can scope to it. Uses connect()/launch()'s shared browser;
+    // createBrowserContext is supported over both.
+    this.#sessionContext = await this.browser.createBrowserContext();
     const pages = await this.createPagesSnapshot();
     await this.createExtensionServiceWorkersSnapshot();
     await this.#networkCollector.init(pages);
@@ -264,7 +276,11 @@ export class McpContext implements Context {
       }
       page = await ctx.newPage();
     } else {
-      page = await this.browser.newPage({background});
+      // Route default new pages into the per-session context so they are
+      // isolated from the shared browser's other tabs. BrowserContext.newPage
+      // accepts the same CreatePageOptions as Browser.newPage, so {background}
+      // is passed through unchanged.
+      page = await this.#sessionContext.newPage({background});
     }
     await this.createPagesSnapshot();
     this.selectPage(this.#getMcpPage(page));
@@ -574,9 +590,30 @@ export class McpContext implements Context {
     isolatedContextNames: Map<Page, string>;
   }> {
     const defaultCtx = this.browser.defaultBrowserContext();
-    const allPages = await this.browser.pages(
-      this.#options.experimentalIncludeAllPages,
-    );
+    // Per-session scoping: source pages ONLY from contexts this session owns —
+    // the auto-created #sessionContext plus any LLM-named isolated sub-contexts
+    // it created (#isolatedContexts). The shared browser's default context and
+    // other sessions' contexts are excluded, which fixes the cross-session tab
+    // bleed in bug #1521.
+    //
+    // experimentalIncludeAllPages is intentionally a NO-OP under per-session
+    // scoping: its "include all browser pages" semantics no longer apply. We
+    // always return the owned contexts' pages and never fall back to
+    // this.browser.pages().
+    const allPages: Page[] = [];
+    for (const ctx of [
+      this.#sessionContext,
+      ...this.#isolatedContexts.values(),
+    ]) {
+      if (ctx.closed) {
+        continue;
+      }
+      for (const page of await ctx.pages()) {
+        if (!allPages.includes(page)) {
+          allPages.push(page);
+        }
+      }
+    }
 
     const allTargets = this.browser.targets();
     const extensionTargets = allTargets.filter(target => {
@@ -614,14 +651,26 @@ export class McpContext implements Context {
       contextToName.set(ctx, name);
     }
 
-    // Auto-discover BrowserContexts not in our mapping (e.g., externally
-    // created incognito contexts) and assign generated names.
+    // Auto-discover BrowserContexts among the session's OWN tracked pages that
+    // aren't yet named, and assign generated names. We iterate the contexts of
+    // allPages (owned pages only) rather than this.browser.browserContexts() so
+    // that other sessions' contexts are never adopted — adopting them would
+    // reintroduce cross-session bleed under per-session scoping. The
+    // #sessionContext is the session's DEFAULT context, not a named
+    // sub-context, so it is excluded from isolated-context labeling.
     const knownContexts = new Set(this.#isolatedContexts.values());
-    for (const ctx of this.browser.browserContexts()) {
-      if (ctx !== defaultCtx && !ctx.closed && !knownContexts.has(ctx)) {
+    for (const page of allPages) {
+      const ctx = page.browserContext();
+      if (
+        ctx !== defaultCtx &&
+        ctx !== this.#sessionContext &&
+        !ctx.closed &&
+        !knownContexts.has(ctx)
+      ) {
         const name = `isolated-context-${this.#nextIsolatedContextId++}`;
         this.#isolatedContexts.set(name, ctx);
         contextToName.set(ctx, name);
+        knownContexts.add(ctx);
       }
     }
 
