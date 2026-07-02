@@ -388,7 +388,17 @@ export async function createMcpServer(
 
   await loadIssueDescriptions();
 
-  return {server, clearcutLogger};
+  // Awaited teardown for the entrypoint's shutdown path (SIGTERM/SIGINT/stdin
+  // end). The onclose wiring above is fire-and-forget and does NOT flush before
+  // the stdio subprocess is killed; this lets the shutdown handlers AWAIT
+  // disposeSession() (→ sessionContext.close()) so the per-session
+  // BrowserContext is actually closed before process.exit. Idempotent via
+  // McpContext#sessionDisposed.
+  async function shutdown(): Promise<void> {
+    await context?.disposeSession();
+  }
+
+  return {server, clearcutLogger, shutdown};
 }
 
 export const logDisclaimers = (args: ReturnType<typeof parseArguments>) => {
