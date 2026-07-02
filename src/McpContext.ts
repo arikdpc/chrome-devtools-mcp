@@ -137,6 +137,11 @@ export class McpContext implements Context {
     // #getAllPages can scope to it. Uses connect()/launch()'s shared browser;
     // createBrowserContext is supported over both.
     this.#sessionContext = await this.browser.createBrowserContext();
+    // Seed exactly one page in the owned context so a fresh session always has
+    // a selectable page. Without it, #getAllPages (scoped to owned contexts)
+    // finds 0 pages, the auto-select never sets #selectedPage, and the per-tool
+    // dispatch guard blocks even new_page/list_pages (Defect A, T4).
+    await this.#sessionContext.newPage();
     const pages = await this.createPagesSnapshot();
     await this.createExtensionServiceWorkersSnapshot();
     await this.#networkCollector.init(pages);
