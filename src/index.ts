@@ -188,6 +188,14 @@ export async function createMcpServer(
     }
   };
 
+  // On transport/session disconnect, tear down the per-session McpContext so
+  // its auto-created BrowserContext does not leak inside the shared Chrome we
+  // reached via connect(). disposeSession() never closes the shared browser
+  // and is idempotent.
+  server.server.onclose = () => {
+    void context?.disposeSession();
+  };
+
   let context: McpContext;
   async function getContext(): Promise<McpContext> {
     const chromeArgs: string[] = (serverArgs.chromeArg ?? []).map(String);

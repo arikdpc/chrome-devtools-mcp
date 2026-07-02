@@ -152,10 +152,38 @@ export class McpContext implements Context {
       mcpPage.dispose();
     }
     this.#mcpPages.clear();
-    // Isolated contexts are intentionally not closed here.
+    // LLM-named #isolatedContexts are intentionally not closed here.
     // Either the entire browser will be closed or we disconnect
     // without destroying browser state.
     this.#isolatedContexts.clear();
+  }
+
+  #sessionDisposed = false;
+
+  /**
+   * Session teardown for the disconnect/onclose path. Runs the synchronous
+   * dispose() cleanup and, crucially, closes the auto-created per-session
+   * #sessionContext so it does NOT leak inside the shared Chrome we reached
+   * via connect() (where the browser process outlives this session). Never
+   * closes the shared browser. Idempotent: a second call is a no-op, and
+   * "already closed"/"target closed" races during shutdown are swallowed.
+   */
+  async disposeSession(): Promise<void> {
+    if (this.#sessionDisposed) {
+      return;
+    }
+    this.#sessionDisposed = true;
+    this.dispose();
+    const sessionContext = this.#sessionContext;
+    // @ts-expect-error allow re-nulling to guard against reuse after teardown.
+    this.#sessionContext = undefined;
+    try {
+      await sessionContext?.close();
+    } catch (error) {
+      // The context may already be gone if the shared browser or the target
+      // was torn down first; that is fine during shutdown.
+      this.logger('Failed to close session context during teardown', error);
+    }
   }
 
   static async from(
